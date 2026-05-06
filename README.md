@@ -9,29 +9,67 @@
 
 ---
 
-## 概要
+## 解決したい課題 (Motivation)
 
-講義や会議の録音を、手作業なしで構造化された議事録に変換します。
-**GPU（RTX 5070）を活用した高精度 Whisper large-v3** による文字起こしと、**Gemini 2.5 Flash** による要約・整形を組み合わせ、実用レベルの議事録を自動生成します。処理の進捗は SSE ストリーミングでリアルタイムに表示され、複数ファイルのバッチ処理にも対応しています。
+大学の講義を効率化し、**学習精度を最大化するために開発した**プロダクトです。
+
+既存のクラウド型文字起こしツールには2つの根本的な問題がありました。
+
+1. **コスト**: API 従量課金では長時間講義を毎日処理すると費用がかさみ、学生が継続して使える設計になっていない
+2. **ハルシネーション（嘘）**: 専門用語・固有名詞が多い講義では AI が誤った内容を生成し、そのまま試験勉強に使うと逆効果になる
+
+これらを解決するため、**Whisper をローカル実行してゼロコスト化**し、**講義資料を RAG として注入することでハルシネーションを抑制**する仕組みを自作しました。実際の講義で継続使用した結果、小テストで満点を維持できています。
 
 ---
 
-## 技術スタック
+## 技術スタック (Tech Stack)
 
-| レイヤー | 技術 |
+| カテゴリ | 技術 |
 |---|---|
-| フロントエンド | Next.js 16.2 (App Router) + TypeScript |
-| スタイリング | Tailwind CSS v4（カスタムベージュパレット） |
-| 文字起こし | openai-whisper large-v3（CUDA / RTX 5070） |
-| 議事録生成 | Gemini 2.5 Flash API |
-| 話者分離 | simple-diarizer（MIT、CPU動作） |
-| ランタイム | Python 3 + PyTorch nightly cu128 |
-| ZIP エクスポート | fflate（ブラウザ側圧縮） |
-| データ永続化 | JSON ファイル + localStorage |
+| Frontend | Next.js 16.2 (App Router) + TypeScript |
+| Styling | Tailwind CSS v4（カスタムカラーパレット） |
+| Speech-to-Text | OpenAI Whisper large-v3（ローカル実行・ゼロコスト） |
+| LLM | Google Gemini 2.5 Flash API |
+| RAG | PDF / テキスト資料を inlineData でコンテキスト注入 |
+| Speaker Diarization | simple-diarizer（MIT・CPU動作） |
+| Runtime | Python 3 + PyTorch nightly cu128（CUDA 12.8） |
+| Streaming | SSE（Server-Sent Events）によるリアルタイム進捗 |
+| Export | fflate（ブラウザ側 ZIP 圧縮）、window.print() for PDF |
+| Data | JSON ファイル + localStorage |
+
+**Features**: Batch processing / Timestamping / Selective re-analysis / Hallucination detection
 
 ---
 
-## 主要機能
+## 独自の工夫 (Technical Challenges)
+
+### ハルシネーション抑制
+講義資料（PDF / テキスト）を Gemini API の `inlineData` として同時送信する RAG 構成を採用。固有名詞・専門用語が多い理系講義でも、資料に基づいた正確な議事録を生成します。
+
+### コスト最適化
+Whisper をローカル GPU（RTX 5070 / sm_120）で実行することで **文字起こしコストをゼロ**に。学生が毎日・長期間使い続けられる設計です。PyTorch nightly + CUDA 12.8 対応のため、最新 GPU アーキテクチャ（sm_120）でもフルスピードで動作します。
+
+### 精度保証（部分指定再解析）
+タイムスタンプ付きで文字起こしを出力し、怪しい箇所のみをチェックボックスで選択して再解析できる仕組みを実装。全体を再処理するより大幅に短時間で精度を修正できます。
+
+### ハルシネーション自動検知
+Whisper の出力を解析し、定型文ループ・無音区間の繰り返し・出力長異常を検知した場合に自動で精度優先設定にフォールバックして再試行します。
+
+### SSE ストリーミング
+Python（Whisper 処理中の tqdm）→ stdout（JSON 行）→ Node.js → SSE → ブラウザ という経路でリアルタイム進捗を表示。モデルダウンロード中も進捗バーに反映されます。
+
+---
+
+## 実績 (Achievements)
+
+- **実際の大学講義で継続使用し、小テストで満点を維持**
+- **ココナラにて商用版として出品中** → [サービスページ](https://coconala.com/services/4196322?ref=top_histories&ref_kind=home&ref_no=1)
+
+単なる学習用プロジェクトではなく、自分自身が毎日使い、商用展開まで行った**実用プロダクト**です。
+
+---
+
+## 主要機能 (Features)
 
 ### AI 処理
 - **Whisper 文字起こし** — large-v3 / medium / small / base をファイルごとに切り替え可能
@@ -41,7 +79,7 @@
 - **講義資料アップロード** — PDF/txt をコンテキストとして渡し、専門用語の精度を向上
 
 ### UI / UX
-- **SSE ストリーミング** — Whisper 進捗（%）をリアルタイム表示。モデルダウンロード中も進捗バー表示
+- **SSE ストリーミング** — Whisper 進捗（%）をリアルタイム表示
 - **複数ファイルキュー** — ドラッグ＆ドロップで複数ファイルを登録し順次処理
 - **インライン編集** — 議事録を画面内で直接編集・保存
 - **部分指定再生成** — タイムスタンプ行をチェックボックスで選択し、指定箇所のみで再生成
@@ -51,7 +89,7 @@
 ### 出力・エクスポート
 - **Markdown / テキストダウンロード**
 - **PDF エクスポート** — `window.print()` + 印刷用 CSS（外部ライブラリ不要）
-- **クリップボードコピー** — HTML 形式とプレーンテキスト両対応（Google ドキュメントに書式付きで貼り付け可）
+- **クリップボードコピー** — HTML 形式とプレーンテキスト両対応
 - **一括 ZIP エクスポート** — 全履歴の議事録・文字起こし・JSON を ZIP でダウンロード
 
 ### その他
@@ -74,14 +112,12 @@ POST /api/transcribe（SSE ストリーミング）
     ↓
 POST /api/summarize
   Gemini 2.5 Flash（カスタムテンプレート対応）
-  講義資料がある場合は inlineData で同時送信
+  講義資料がある場合は inlineData で同時送信（RAG）
     ↓
 議事録・文字起こしを表示
   自動保存 → data/history/*.json
   ブラウザ通知
 ```
-
-**SSE の仕組み**: Python → stdout（JSON 行）→ Node.js → SSE → ブラウザ。`tqdm` をパッチして Whisper の進捗をリアルタイム取得。
 
 ---
 
@@ -117,30 +153,57 @@ lecture-minutes/
 
 ---
 
-## セットアップ
+## セットアップ (Setup)
+
+### 前提条件
+- Node.js 18 以上
+- Python 3.11 以上
+- CUDA 対応 GPU 推奨（CPU でも動作しますが処理速度が大幅に低下します）
+
+### インストール
 
 ```bash
-# Node.js 依存インストール
+# 1. リポジトリをクローン
+git clone https://github.com/myfavoriteharuto-collab/lecture-minutes.git
+cd lecture-minutes
+
+# 2. Node.js 依存インストール
 npm install
 
-# Python 仮想環境
+# 3. Python 仮想環境を作成・有効化
 python -m venv .venv
+
+# Windows
 .venv\Scripts\activate
+# Mac / Linux
+source .venv/bin/activate
+
+# 4. Whisper と PyTorch をインストール
 pip install openai-whisper
+
+# GPU（CUDA 12.8）を使う場合
 pip install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu128
 
-# 話者分離を使う場合
+# CPU のみの場合
+pip install torch
+
+# 5. 話者分離を使う場合（任意）
 pip install simple-diarizer
 
-# 環境変数
+# 6. 環境変数を設定
+# .env.local を作成し、Google AI Studio で取得した API キーを記載
 echo GOOGLE_API_KEY=your_key_here > .env.local
-
-# ビルド＆起動
-npm run build
-npm start
 ```
 
-> **GPU 要件**: CUDA 12.8 対応 GPU 推奨（開発環境: RTX 5070 / sm_120）。CPU でも動作しますが処理速度が大幅に低下します。
+### 起動
+
+```bash
+npm run build
+npm start
+# → http://localhost:3000 を開く
+```
+
+> **GPU 要件**: 開発環境は RTX 5070 / sm_120 / PyTorch nightly cu128。CUDA 12.8 以降に対応した GPU であれば高速動作します。
 
 ---
 
