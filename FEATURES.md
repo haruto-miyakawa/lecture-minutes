@@ -124,7 +124,7 @@ lecture-minutes/
 │   ├── StatsPanel.tsx            # 処理統計・一括エクスポート
 │   └── HelpPanel.tsx             # 使い方ガイドモーダル
 ├── lib/
-│   ├── claude.ts                 # Gemini API呼び出し
+│   ├── gemini.ts                 # Gemini API呼び出し
 │   ├── prompts.ts                # プロンプト定数・プリセットテンプレート
 │   └── history.ts                # JSONファイルベースの履歴管理
 ├── whisper/

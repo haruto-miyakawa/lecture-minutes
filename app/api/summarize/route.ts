@@ -1,5 +1,5 @@
 import type { NextRequest } from 'next/server'
-import { formatMinutes, type MaterialContext } from '@/lib/claude'
+import { formatMinutes, type MaterialContext } from '@/lib/gemini'
 
 export async function POST(request: NextRequest) {
   try {
