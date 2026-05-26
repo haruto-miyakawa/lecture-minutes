@@ -112,7 +112,7 @@ flowchart TD
 
 ```bash
 # 1. Clone
-git clone https://github.com/myfavoriteharuto-collab/lecture-minutes.git
+git clone https://github.com/haruto-miyakawa/lecture-minutes.git
 cd lecture-minutes
 
 # 2. Node.js dependencies
